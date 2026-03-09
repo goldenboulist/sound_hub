@@ -11,6 +11,7 @@ class AudioService {
   static final AudioService _instance = AudioService._();
   AudioService._() {
     _initHotkeys();
+    _initWindowsCompletionTimer();
   }
   static AudioService get instance => _instance;
 
@@ -21,8 +22,10 @@ class AudioService {
   Stream<int> get hotkeyEvents => _hotkeyEventsCtrl.stream;
 
   final Map<String, AudioPlayer> _players = {};
+  final Map<String, Map<String, dynamic>> _windowsAudioStartTimes = {};
   bool _allowMultiple = false;
   AudioInput? _currentDevice;
+  Timer? _windowsCompletionTimer;
 
   String? _selectedWindowsDeviceId;
   String? _selectedWindowsSecondaryDeviceId;
@@ -44,6 +47,35 @@ class AudioService {
           if (id is int) {
             _hotkeyEventsCtrl.add(id);
           }
+        }
+      }
+    });
+  }
+
+  void _initWindowsCompletionTimer() {
+    if (!_isWindows) return;
+    _windowsCompletionTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      final now = DateTime.now();
+      final expiredIds = <String>[];
+      
+      for (final entry in _windowsAudioStartTimes.entries) {
+        final id = entry.key;
+        final data = entry.value;
+        final startTime = data['startTime'] as DateTime;
+        final durationMs = (data['duration'] as num).toInt();
+        final elapsedMs = now.difference(startTime).inMilliseconds;
+        
+        // Add a small buffer (500ms) to ensure completion
+        if (elapsedMs > durationMs + 500) {
+          expiredIds.add(id);
+        }
+      }
+      
+      for (final id in expiredIds) {
+        _windowsAudioStartTimes.remove(id);
+        final player = _players.remove(id);
+        if (player != null) {
+          player.dispose();
         }
       }
     });
@@ -212,18 +244,24 @@ class AudioService {
 
   // ─── Playback ────────────────────────────────────────────────────────────────
 
-  Future<void> play(String id, String filePath, double volume) async {
+  Future<void> play(String id, String filePath, double volume, {double duration = 0}) async {
     if (!_allowMultiple) await stopAll();
     await stop(id);
 
     if (_isWindows) {
-      await _windowsChannel.invokeMethod('playAudioOnDevice', {
+      // Don't await — fire and forget so platform thread isn't blocked
+      unawaited(_windowsChannel.invokeMethod('playAudioOnDevice', {
         'filePath': filePath,
         'deviceId': _selectedWindowsDeviceId ?? '',
         'secondaryDeviceId': _selectedWindowsSecondaryDeviceId ?? '',
         'volume': volume.clamp(0.0, 1.0),
-      });
+      }));
+
       _players[id] = AudioPlayer();
+      _windowsAudioStartTimes[id] = {
+        'startTime': DateTime.now(),
+        'duration': duration > 0 ? duration * 1000 : 1000,
+      };
       return;
     }
 
@@ -240,33 +278,35 @@ class AudioService {
   }
 
   Future<void> stop(String id) async {
-    final player = _players.remove(id);
-    if (player != null) {
-      if (_isWindows) {
-        await _windowsChannel.invokeMethod('stopAudio');
-        await player.dispose();
-        return;
-      }
-      await player.stop();
-      await player.dispose();
-    }
-  }
-
-  Future<void> stopAll() async {
-    final players = Map.of(_players);
-    _players.clear();
+  _windowsAudioStartTimes.remove(id);
+  final player = _players.remove(id);
+  if (player != null) {
     if (_isWindows) {
-      await _windowsChannel.invokeMethod('stopAudio');
-      for (final player in players.values) {
-        await player.dispose();
-      }
+      unawaited(_windowsChannel.invokeMethod('stopAudio')); // fire-and-forget
+      unawaited(player.dispose());                          // fire-and-forget
       return;
     }
-    for (final player in players.values) {
-      await player.stop();
-      await player.dispose();
-    }
+    await player.stop();
+    await player.dispose();
   }
+}
+
+  Future<void> stopAll() async {
+  final players = Map.of(_players);
+  _players.clear();
+  _windowsAudioStartTimes.clear();
+  if (_isWindows) {
+    unawaited(_windowsChannel.invokeMethod('stopAudio')); // fire-and-forget
+    for (final player in players.values) {
+      unawaited(player.dispose());
+    }
+    return;
+  }
+  for (final player in players.values) {
+    await player.stop();
+    await player.dispose();
+  }
+}
 
   bool isPlaying(String id) => _players.containsKey(id);
   Set<String> get playingIds => Set.unmodifiable(_players.keys);
@@ -283,6 +323,7 @@ class AudioService {
   void dispose() {
     removeListener();
     stopAll();
+    _windowsCompletionTimer?.cancel();
     _hotkeyEventsCtrl.close();
   }
 }

@@ -588,9 +588,11 @@ void AudioDevicePlugin::PlayOnDeviceInternal(
         }
 
         // Drain the buffer before stopping so we don't cut off the tail.
+        // Must check stop_flag here — if Stop() was called externally the hardware
+        // cursor freezes and padding never reaches 0, causing a 3-second hang.
         if (!stop_flag) {
             const ULONGLONG start = GetTickCount64();
-            while (true) {
+            while (!stop_flag) {
                 UINT32 padding = 0;
                 if (FAILED(audioClient->GetCurrentPadding(&padding))) break;
                 if (padding == 0) break;

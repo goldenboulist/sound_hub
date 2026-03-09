@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../models/sound_item.dart';
 import '../services/database_service.dart';
 import '../services/audio_service.dart';
@@ -65,6 +66,33 @@ class SoundsProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateMissingDurations() async {
+    final soundsToUpdate = _sounds.where((s) => s.duration == 0).toList();
+    
+    for (int i = 0; i < soundsToUpdate.length; i++) {
+      final sound = soundsToUpdate[i];
+      try {
+        final player = AudioPlayer();
+        await player.setSource(DeviceFileSource(sound.filePath));
+        final durationResult = await player.getDuration();
+        await player.dispose();
+        
+        if (durationResult != null) {
+          final duration = durationResult.inMilliseconds.toDouble() / 1000.0;
+          await _db.updateSound(sound.copyWith(duration: duration));
+        }
+        
+        // Add a small delay between processing sounds to avoid overwhelming the system
+        if (i < soundsToUpdate.length - 1) {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+      } catch (_) {
+        // If we can't get duration, skip this sound
+      }
+    }
+    await _refresh();
+  }
+
   Future<void> _syncGlobalHotkeys() async {
     final nextCombos = <String>{
       for (final s in _sounds)
@@ -115,6 +143,21 @@ class SoundsProvider extends ChangeNotifier {
 
       try {
         final destPath = await _db.copyAudioFile(path, fileName);
+        
+        // Get audio duration
+        double duration = 0;
+        try {
+          final player = AudioPlayer();
+          await player.setSource(DeviceFileSource(destPath));
+          final durationResult = await player.getDuration();
+          if (durationResult != null) {
+            duration = durationResult.inMilliseconds.toDouble() / 1000.0;
+          }
+          await player.dispose();
+        } catch (_) {
+          // If we can't get duration, keep it as 0
+        }
+        
         final sound = SoundItem(
           id: _uuid.v4(),
           name: fileName.replaceAll(RegExp(r'\.[^.]+$'), ''),
@@ -122,7 +165,7 @@ class SoundsProvider extends ChangeNotifier {
           filePath: destPath,
           order: _sounds.length,
           size: stat.size,
-          duration: 0,
+          duration: duration,
           createdAt: DateTime.now().millisecondsSinceEpoch,
         );
         await _db.addSound(sound);
@@ -138,11 +181,14 @@ class SoundsProvider extends ChangeNotifier {
   Future<void> play(String id) async {
     final sound = _findById(id);
     if (sound == null) return;
-    await _audio.play(id, sound.filePath, sound.volume);
+    await _audio.play(id, sound.filePath, sound.volume, duration: sound.duration);
   }
 
   Future<void> stop(String id) async {
     await _audio.stop(id);
+    // Force immediate UI update
+    _playingIds = _audio.playingIds;
+    notifyListeners();
   }
 
   Future<void> rename(String id, String name) async {

@@ -63,6 +63,7 @@ class SoundItem {
     bool? favorite,
     double? volume,
     int? order,
+    double? duration,
     Object? shortcut = _sentinel,
   }) =>
       SoundItem(
@@ -75,7 +76,7 @@ class SoundItem {
         volume: volume ?? this.volume,
         order: order ?? this.order,
         size: size,
-        duration: duration,
+        duration: duration ?? this.duration,
         createdAt: createdAt,
         shortcut:
             shortcut == _sentinel ? this.shortcut : shortcut as String?,
