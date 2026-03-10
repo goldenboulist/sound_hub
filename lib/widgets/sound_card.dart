@@ -145,57 +145,60 @@ class _SoundCardState extends State<SoundCard> {
                   _KbdBadge(sound.shortcut!),
 
                 // Action buttons (shown on hover)
-                AnimatedOpacity(
-                  opacity: _hovered ? 1 : 0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(width: 8),
-                      _IconBtn(
-                        icon: sound.favorite
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: sound.favorite
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                        tooltip: sound.favorite
-                            ? 'Remove favorite'
-                            : 'Add favorite',
-                        onPressed: widget.onToggleFavorite,
-                      ),
-                      _IconBtn(
-                        icon: Icons.volume_up_outlined,
-                        color: _showVolume
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                        tooltip: 'Volume',
-                        onPressed: () =>
-                            setState(() => _showVolume = !_showVolume),
-                      ),
-                      _IconBtn(
-                        icon: Icons.keyboard,
-                        color: sound.shortcut != null
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                        tooltip: 'Keyboard shortcut',
-                        onPressed: widget.onSetShortcut,
-                      ),
-                      _IconBtn(
-                        icon: Icons.edit_outlined,
-                        color: colorScheme.onSurfaceVariant,
-                        tooltip: 'Rename',
-                        onPressed: widget.onRename,
-                      ),
-                      _IconBtn(
-                        icon: Icons.delete_outline,
-                        color: colorScheme.error,
-                        tooltip: 'Delete',
-                        onPressed: widget.onDelete,
-                      ),
-                    ],
+                Padding(
+                  padding: const EdgeInsets.only(right: 20),
+                  child: AnimatedOpacity(
+                    opacity: _hovered ? 1 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 8),
+                        _IconBtn(
+                          icon: sound.favorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: sound.favorite
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                          tooltip: sound.favorite
+                              ? 'Remove favorite'
+                              : 'Add favorite',
+                          onPressed: widget.onToggleFavorite,
+                        ),
+                        _IconBtn(
+                          icon: Icons.volume_up_outlined,
+                          color: _showVolume
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                          tooltip: 'Volume',
+                          onPressed: () =>
+                              setState(() => _showVolume = !_showVolume),
+                        ),
+                        _IconBtn(
+                          icon: Icons.keyboard,
+                          color: sound.shortcut != null
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                          tooltip: 'Keyboard shortcut',
+                          onPressed: widget.onSetShortcut,
+                        ),
+                        _IconBtn(
+                          icon: Icons.edit_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                          tooltip: 'Rename',
+                          onPressed: widget.onRename,
+                        ),
+                        _IconBtn(
+                          icon: Icons.delete_outline,
+                          color: colorScheme.error,
+                          tooltip: 'Delete',
+                          onPressed: widget.onDelete,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                )
               ],
             ),
 
@@ -296,9 +299,9 @@ class _PlayButtonState extends State<_PlayButton> {
             ),
             child: Icon(
               widget.isPlaying ? Icons.stop : Icons.play_arrow,
-              color: widget.isPlaying
+              color: widget.isPlaying || _isHovered
                   ? colorScheme.onPrimary
-                  : colorScheme.onSurface,
+                  : colorScheme.onSurfaceVariant,
               size: 20,
             ),
           ),

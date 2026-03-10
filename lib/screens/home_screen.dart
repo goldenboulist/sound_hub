@@ -13,7 +13,7 @@ import '../widgets/shortcut_dialog.dart';
 import '../widgets/sound_card.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-enum FilterMode { all, favorites, category }
+enum FilterMode { all, favorites, category, shortcut }
 
 class HomeScreen extends StatefulWidget {
   final bool darkMode;
@@ -159,6 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_filterMode == FilterMode.category &&
         _selectedCategory != null) {
       list = list.where((s) => s.category == _selectedCategory).toList();
+    } else if (_filterMode == FilterMode.shortcut) {
+      list = list.where((s) => s.shortcut != null && s.shortcut!.isNotEmpty).toList();
     }
     final q = _searchCtrl.text.toLowerCase();
     if (q.isNotEmpty) {
@@ -227,6 +229,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       onCategory: (cat) => setState(() {
                         _filterMode = FilterMode.category;
                         _selectedCategory = cat;
+                      }),
+                      onShortcut: () => setState(() {
+                        _filterMode = FilterMode.shortcut;
+                        _selectedCategory = null;
                       }),
                     ),
                     if (_importStatus.isNotEmpty)
@@ -400,9 +406,9 @@ class _HeaderState extends State<_Header> {
     final colorScheme = Theme.of(context).colorScheme;
 
     final importIconColor =
-        _importHovered ? const Color(0xFF080A0C) : const Color(0xFFE7EBEF);
+        _importHovered ? const Color(0xFF080A0C) : colorScheme.onSurface;
     final settingsIconColor =
-        _settingsHovered ? const Color(0xFF080A0C) : const Color(0xFFE7EBEF);
+        _settingsHovered ? const Color(0xFF080A0C) : colorScheme.onSurfaceVariant;
 
     return Container(
       decoration: BoxDecoration(
@@ -473,12 +479,12 @@ class _HeaderState extends State<_Header> {
                     backgroundColor: WidgetStateProperty.resolveWith<Color>(
                       (states) => states.contains(WidgetState.hovered)
                           ? const Color(0xFF18DCB5)
-                          : const Color(0xFF111218),
+                          : colorScheme.surfaceContainer,
                     ),
                     foregroundColor: WidgetStateProperty.resolveWith<Color>(
                       (states) => states.contains(WidgetState.hovered)
                           ? const Color(0xFF080A0C)
-                          : const Color(0xFFE7EBEF),
+                          : colorScheme.onSurface,
                     ),
                     overlayColor: WidgetStateProperty.all(Colors.transparent),
                     padding: WidgetStateProperty.all(const EdgeInsets.all(16)),
@@ -535,14 +541,18 @@ class _HeaderState extends State<_Header> {
           TextField(
             controller: widget.searchCtrl,
             onChanged: widget.onSearchChanged,
-            style: const TextStyle(color: Color(0xFFE7EBEF)),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant,
+            ),
             decoration: InputDecoration(
               hintText: 'Search sounds…',
               hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
               prefixIcon:
                   Icon(Icons.search, size: 18, color: colorScheme.onSurfaceVariant),
               filled: true,
-              fillColor: const Color(0xFF23262F),
+              fillColor: colorScheme.surfaceContainer,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -550,7 +560,7 @@ class _HeaderState extends State<_Header> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide:
-                    const BorderSide(color: Color(0xFF18DCB5), width: 1),
+                    BorderSide(color: colorScheme.primary.withValues(alpha: 0.3), width: 1),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -570,6 +580,7 @@ class _FilterBar extends StatelessWidget {
   final VoidCallback onAll;
   final VoidCallback onFavorites;
   final void Function(String) onCategory;
+  final VoidCallback onShortcut;
 
   const _FilterBar({
     required this.filterMode,
@@ -578,6 +589,7 @@ class _FilterBar extends StatelessWidget {
     required this.onAll,
     required this.onFavorites,
     required this.onCategory,
+    required this.onShortcut,
   });
 
   @override
@@ -607,6 +619,12 @@ class _FilterBar extends StatelessWidget {
                 icon: Icons.star_outline,
                 active: filterMode == FilterMode.favorites,
                 onTap: onFavorites),
+            const SizedBox(width: 6),
+            _FilterChip(
+                label: 'Shortcut',
+                icon: Icons.keyboard,
+                active: filterMode == FilterMode.shortcut,
+                onTap: onShortcut),
             ...categories.map((cat) => Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: _FilterChip(
