@@ -1,6 +1,6 @@
 # Sound Hub
 
-![App Icon](c:\Users\maxime\Documents\codeProject\Flutter_Applications\soundboard\macos\Runner\Assets.xcassets\AppIcon.appiconset\app_icon_1024.png)
+![App Logo](assets/image.png)
 
 A professional Windows desktop soundboard application built with Flutter, designed for seamless audio management and playback.
 
